@@ -22,13 +22,15 @@ setInterval(() => {
       });
     }
   });
-  console.log(chalk.green('🧹 Temp folder auto-cleaned'));
+  console.log(chalk.green('[ Moon-Xmd ] 🧹 Temp folder auto-cleaned'));
 }, 3 * 60 * 60 * 1000);
 
 const settings = require('./settings');
 require('./config.js');
 const { isBanned } = require('./lib/isBanned');
 const yts = require('yt-search');
+const { getPrefixes } = require('./lib/prefixManager');
+const prefixCommand = require('./commands/prefix');
 const { fetchBuffer } = require('./lib/myfunc');
 const fetch = require('node-fetch');
 const ytdl = require('ytdl-core');
@@ -139,6 +141,9 @@ const textmakerCommand = require('./commands/textmaker');
 const { handleAntideleteCommand, handleMessageRevocation, storeMessage } = require('./commands/antidelete');
 const clearTmpCommand = require('./commands/cleartmp');
 const setProfilePicture = require('./commands/setpp');
+// uptime cmd
+const uptimeCommand = require('./commands/uptime');
+
 const { setGroupDescription, setGroupName, setGroupPhoto } = require('./commands/groupmanage');
 const instagramCommand = require('./commands/instagram');
 const facebookCommand = require('./commands/facebook');
@@ -169,6 +174,14 @@ const { anticallCommand, readState: readAnticallState } = require('./commands/an
 const { pmblockerCommand, readState: readPmBlockerState } = require('./commands/pmblocker');
 const settingsCommand = require('./commands/settings');
 const soraCommand = require('./commands/sora');
+const { isAntieditEnabled, storeOriginalMessage, getOriginalMessage } = require('./lib/antiedit');
+const antieditCommand = require('./commands/antiedit');
+const botimgCommand = require('./commands/botimg');
+const botnameCommand = require('./commands/botname');
+const getppCommand = require('./commands/getpp');
+const { blockCommand, unblockCommand } = require('./commands/block');
+const tutorialCommand = require('./commands/tutorial');
+
 
 // Global settings
 global.packname = settings.packname;
@@ -188,9 +201,10 @@ const channelInfo = {
     }
 };
 
+
 // Multi-prefix helper function
 function getPrefix(text) {
-    const prefixes = Array.isArray(settings.Prefix) ? settings.Prefix : [settings.Prefix];
+    const prefixes = getPrefixes(); // Get prefixes from file
     for (const prefix of prefixes) {
         if (text.startsWith(prefix)) {
             return prefix;
@@ -206,14 +220,99 @@ function logCommand(fullCommand, isGroup, chatId, prefix) {
     const groupName = isGroup ? (chatId.split('@')[0].substring(0, 25) || 'Unknown') : 'Direct Message';
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     
-    console.log(chalk.cyan('\n╔═════════════════════════════════════╗'));
+    console.log(chalk.cyan('\n╔═══════════════════════════════╗'));
+    
     console.log(bgColor.white.bold(`║  📍 ${location.padEnd(39)} ║`));
-    console.log(chalk.cyan('╠═════════════════════════════════════╣'));
+    console.log(chalk.cyan('╠═════════════════════════════════╣'));
     console.log(chalk.yellow(`║  💬 Chat: ${groupName.padEnd(33)} ║`));
     console.log(chalk.green(`║  ⚡ Command: ${fullCommand.substring(0, 30).padEnd(30)} ║`));
     console.log(chalk.blue(`║  🔰 Prefix: ${(prefix || 'none').padEnd(32)} ║`));
     console.log(chalk.magenta(`║  ⏰ Time: ${timestamp.padEnd(34)} ║`));
-    console.log(chalk.cyan('╚═════════════════════════════════════╝\n'));
+    console.log(chalk.cyan('╚══════════════════════════════════╝\n'));
+}
+
+// Antiedit
+async function handleMessageEdit(sock, message) {
+    try {
+        const { isAntieditEnabled, getAntieditMode, getOriginalMessage } = require('./lib/antiedit');
+        
+        if (!isAntieditEnabled()) return;
+        
+        const chatId = message.key.remoteJid;
+        const messageId = message.key.id;
+        const sender = message.key.participant || message.key.remoteJid;
+        
+        // Get the original message
+        const originalMsg = getOriginalMessage(chatId, messageId);
+        if (!originalMsg) return;
+        
+        // Extract edited content
+        let editedContent = '';
+        if (message.message?.editedMessage?.message?.protocolMessage?.editedMessage?.conversation) {
+            editedContent = message.message.editedMessage.message.protocolMessage.editedMessage.conversation;
+        } else if (message.message?.editedMessage?.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text) {
+            editedContent = message.message.editedMessage.message.protocolMessage.editedMessage.extendedTextMessage.text;
+        }
+        
+        if (!editedContent || editedContent === originalMsg.content) return;
+        
+        const mode = getAntieditMode();
+        const isGroup = chatId.endsWith('@g.us');
+        
+        // Format the alert message
+        let alertText = `╭────────────╮
+│  *MESSAGE EDITED*  │
+╰─────────────╯
+
+👤 *Sender:* @${sender.split('@')[0]}
+${isGroup ? `📍 *Group:* ${chatId.split('@')[0]}` : ''}
+
+📝 *Original Message:*
+${originalMsg.content}
+
+✏️ *Edited Message:*
+${editedContent}
+
+⏰ *Time:* ${new Date().toLocaleString()}
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍᴏᴏɴ xᴍᴅ`;
+
+        if (mode === 'private') {
+            // Send to owner DM
+            const ownerNumber = settings.ownerNumber + '@s.whatsapp.net';
+            await sock.sendMessage(ownerNumber, {
+                text: alertText,
+                mentions: [sender],
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: '120363417440480101@newsletter',
+                        newsletterName: 'KEITH TECH',
+                        serverMessageId: -1
+                    }
+                }
+            });
+        } else {
+            // Send in the same chat (public mode)
+            await sock.sendMessage(chatId, {
+                text: alertText,
+                mentions: [sender],
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: '120363417440480101@newsletter',
+                        newsletterName: 'KEITH TECH',
+                        serverMessageId: -1
+                    }
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error handling message edit:', error);
+    }
 }
 
 async function handleMessages(sock, messageUpdate, printLog) {
@@ -231,6 +330,21 @@ async function handleMessages(sock, messageUpdate, printLog) {
         if (message.message) {
             storeMessage(sock, message);
         }
+        
+        // Store messages for Antiedit
+if (message.message) {
+    storeMessage(sock, message);
+    
+    // Store original message for antiedit
+    const { storeOriginalMessage } = require('./lib/antiedit');
+    storeOriginalMessage(message);
+}
+
+// Check for message edits
+if (message.message?.editedMessage) {
+    await handleMessageEdit(sock, message);
+    return;
+}
 
         // Handle message revocation
         if (message.message?.protocolMessage?.type === 0) {
@@ -471,6 +585,46 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await dogCommand(sock, chatId, message);
                 commandExecuted = true;
                 break;
+                // new cmds added
+                case userMessage.startsWith('antiedit'):
+    const antieditArgs = userMessage.split(' ')[1];
+    await antieditCommand(sock, chatId, message, antieditArgs);
+    commandExecuted = true;
+    break;
+    
+    case userMessage.startsWith('botimg'):
+    await botimgCommand(sock, chatId, message, isOwnerOrSudo);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('botname'):
+    const botnameArgs = rawText.slice(prefix.length + 7).trim();
+    await botnameCommand(sock, chatId, message, botnameArgs, isOwnerOrSudo);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('getpp') || userMessage.startsWith('profilepic') || userMessage.startsWith('pp'):
+    const getppArgs = rawText.slice(prefix.length + userMessage.split(' ')[0].length).trim();
+    await getppCommand(sock, chatId, message, getppArgs);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('block'):
+    const blockArgs = rawText.slice(prefix.length + 5).trim();
+    await blockCommand(sock, chatId, message, blockArgs, isOwnerOrSudo);
+    commandExecuted = true;
+    break;
+
+case userMessage.startsWith('unblock'):
+    const unblockArgs = rawText.slice(prefix.length + 7).trim();
+    await unblockCommand(sock, chatId, message, unblockArgs, isOwnerOrSudo);
+    commandExecuted = true;
+    break;
+
+case userMessage === 'tutorial' || userMessage === 'tuto' || userMessage === 'guide' || userMessage === 'deploy':
+    await tutorialCommand(sock, chatId, message);
+    commandExecuted = true;
+    break;
 
             // ======================= EXISTING COMMANDS =======================
             case userMessage === 'simage': {
@@ -483,6 +637,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 commandExecuted = true;
                 break;
             }
+            
+            // UPTIME CMD
+            
+            case userMessage === 'uptime':
+                await uptimeCommand(sock, chatId, message);
+                
+                
+                
             case userMessage.startsWith('kick'):
                 const mentionedJidListKick = message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 await kickCommand(sock, chatId, senderId, mentionedJidListKick, message);
@@ -498,7 +660,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
                         await muteCommand(sock, chatId, senderId, message, muteDuration);
                     }
                 }
-                break;
+                break
+
             case userMessage === 'unmute':
                 await unmuteCommand(sock, chatId, senderId);
                 break;
@@ -520,7 +683,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 }
                 await unbanCommand(sock, chatId, message);
                 break;
-            case userMessage === 'help' || userMessage === 'menu' || userMessage === 'bot' || userMessage === 'list':
+            case userMessage === 'moon' || userMessage === 'menu' || userMessage === 'moon-xmd' || userMessage === 'moonxmd':
                 await helpCommand(sock, chatId, message, global.channelLink);
                 commandExecuted = true;
                 break;
@@ -547,9 +710,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await attpCommand(sock, chatId, message);
                 break;
                 
-                case userMessage.startsWith('.tourl') || userMessage.startsWith('.imgtourl') || 
-     userMessage.startsWith('.imgurl') || userMessage === '.url' || 
-     userMessage.startsWith('.geturl') || userMessage.startsWith('.upload'):
+                case userMessage.startsWith('tourl') || userMessage.startsWith('imgtourl') || 
+     userMessage.startsWith('imgurl') || userMessage === 'url' || 
+     userMessage.startsWith('geturl') || userMessage.startsWith('upload'):
     await tourlCommand(sock, chatId, message);
     commandExecuted = true;
     break;
@@ -695,27 +858,28 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await factCommand(sock, chatId, message, message);
                 break;
  //==========================================//               
-                case userMessage.startsWith('.cid') || userMessage.startsWith('.newsletter') || userMessage.startsWith('.id'):
+                case userMessage.startsWith('cid') || userMessage.startsWith('newsletter') || userMessage.startsWith('id'):
     await channelInfoCommand(sock, chatId, message, userMessage);
     commandExecuted = true;
     break;
 
-case userMessage.startsWith('.bible'):
-    await bibleCommand(sock, chatId, message, userMessage);
+case userMessage.startsWith('bible'):
+    
+    await bibleCommand(sock, chatId, message, rawText);
     commandExecuted = true;
     break;
 
-case userMessage.startsWith('.tiny') || userMessage.startsWith('.short') || userMessage.startsWith('.shorturl'):
+case userMessage.startsWith('tiny') || userMessage.startsWith('short') || userMessage.startsWith('shorturl'):
     await tinyCommand(sock, chatId, message, userMessage);
     commandExecuted = true;
     break;
 
-case userMessage.startsWith('.vfc') || userMessage.startsWith('.savecontact') || userMessage.startsWith('.scontact') || userMessage.startsWith('.savecontacts'):
+case userMessage.startsWith('vfc') || userMessage.startsWith('savecontact') || userMessage.startsWith('scontact') || userMessage.startsWith('savecontacts'):
     await vcardCommand(sock, chatId, message, isGroup, isOwnerOrSudo, groupMetadata);
     commandExecuted = true;
     break;
 
-case userMessage.startsWith('.send') || userMessage.startsWith('.sendme') || userMessage.startsWith('.save'):
+case userMessage.startsWith('send') || userMessage.startsWith('sendme') || userMessage.startsWith('save'):
     await sendCommand(sock, chatId, message);
     commandExecuted = true;
     break;
@@ -851,6 +1015,12 @@ case userMessage.startsWith('.send') || userMessage.startsWith('.sendme') || use
                     await sock.sendMessage(chatId, { text: 'This command can only be used in groups.', ...channelInfo }, { quoted: message });
                 }
                 break;
+                // prefix
+                case userMessage.startsWith('prefix'):
+    await prefixCommand(sock, chatId, message, isOwnerOrSudo);
+    commandExecuted = true;
+    break;
+    
             case userMessage.startsWith('goodbye'):
                 if (isGroup) {
                     // Check admin status if not already checked
@@ -873,10 +1043,6 @@ case userMessage.startsWith('.send') || userMessage.startsWith('.sendme') || use
                 await apkCommand(sock, chatId, message, userMessage);
                 commandExecuted = true;
                 break;
-            case userMessage === 'git':
-            case userMessage === 'github':
-            case userMessage === 'sc':
-            case userMessage === 'script':
             case userMessage === 'repo':
                 await githubCommand(sock, chatId, message);
                 break;

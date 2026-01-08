@@ -4,10 +4,12 @@
 require('./settings')
 const { Boom } = require('@hapi/boom')
 const fs = require('fs')
+const os = require('os')
 const chalk = require('chalk')
 const FileType = require('file-type')
 const path = require('path')
 const axios = require('axios')
+const { getPrefixes, setPrefixes, addPrefix, removePrefix } = require('./lib/prefixManager')
 const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
 const PhoneNumber = require('awesome-phonenumber')
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
@@ -91,14 +93,14 @@ async function downloadSessionData() {
 
         if (!fs.existsSync(credsPath)) {
             if (!settings.SESSION_ID) {
-                console.log(chalk.yellow('⚠️  Session ID not found in settings!'));
-                console.log(chalk.yellow('⚠️  Creds.json not found in session folder!'));
-                console.log(chalk.cyan('📱 Will use pairing code method instead...'));
+                console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Session ID not found in settings!'));
+                console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Creds.json not found in session folder!'));
+                console.log(chalk.cyan('[ Moon-Xmd ] 📱 Will use pairing code method instead...'));
                 return false;
             }
 
-            console.log(chalk.cyan('📥 Downloading session data from SESSION_ID...'));
-            console.log(chalk.cyan('🔰 Downloading MEGA.nz session...'));
+            console.log(chalk.cyan('[ Moon-Xmd ] 📥 Downloading session data from SESSION_ID...'));
+            console.log(chalk.cyan('[ Moon-Xmd ] 🔰 Downloading MEGA.nz session...'));
             
             // Remove "Moon~" prefix if present, otherwise use full SESSION_ID
             const megaFileId = settings.SESSION_ID.startsWith('Moon~') 
@@ -116,19 +118,19 @@ async function downloadSessionData() {
                 });
                 
                 await fs.promises.writeFile(credsPath, sessionData);
-                console.log(chalk.green('✅ MEGA session downloaded successfully!'));
+                console.log(chalk.green('[ Moon-Xmd ] ✅ MEGA session downloaded successfully!'));
                 return true;
             } catch (megaError) {
-                console.log(chalk.red('❌ Error downloading from MEGA:'), megaError.message);
-                console.log(chalk.yellow('⚠️  Invalid MEGA file ID or file not accessible'));
+                console.log(chalk.red('[ Moon-Xmd ] ❌ Error downloading from MEGA:'), megaError.message);
+                console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Invalid MEGA file ID or file not accessible'));
                 return false;
             }
         } else {
-            console.log(chalk.green('✅ Using existing creds.json'));
+            console.log(chalk.green('[ Moon-Xmd ] ✅ Using existing creds.json'));
             return true;
         }
     } catch (error) {
-        console.error(chalk.red('❌ Error processing session data:'), error.message);
+        console.error(chalk.red('[ Moon-Xmd ] ❌ Error processing session data:'), error.message);
         return false;
     }
 }
@@ -208,10 +210,10 @@ async function startXeonBotInc() {
                 try {
                     await handleMessages(XeonBotInc, chatUpdate, true)
                 } catch (err) {
-                    console.error("Error in handleMessages:", err)
+                    console.error("[ Moon-Xmd ] Error in handleMessages:", err)
                     if (mek.key && mek.key.remoteJid) {
                         await XeonBotInc.sendMessage(mek.key.remoteJid, {
-                            text: '❌ An error occurred while processing your message.',
+                            text: '[ Moon-Xmd ] ❌ An error occurred while processing your message.',
                             contextInfo: {
                                 forwardingScore: 1,
                                 isForwarded: true,
@@ -225,7 +227,7 @@ async function startXeonBotInc() {
                     }
                 }
             } catch (err) {
-                console.error("Error in messages.upsert:", err)
+                console.error("[ Moon-Xmd ] Error in messages.upsert:", err)
             }
         })
 
@@ -267,7 +269,7 @@ async function startXeonBotInc() {
 
         // Handle pairing code - only if no session exists
         if (pairingCode && !XeonBotInc.authState.creds.registered) {
-            if (useMobile) throw new Error('Cannot use pairing code with mobile api')
+            if (useMobile) throw new Error('[ Moon-Xmd ] Cannot use pairing code')
 
             let phoneNumber
             if (!!global.phoneNumber) {
@@ -318,35 +320,35 @@ async function startXeonBotInc() {
                 const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
                 
                 if (reason === DisconnectReason.badSession) {
-                    console.log(chalk.red('❌ Bad Session File, Please Delete Session and Scan Again'));
+                    console.log(chalk.red('[ Moon-Xmd ] ❌ Bad Session File, Please Delete Session and Scan Again'));
                     process.exit(0);
                 } else if (reason === DisconnectReason.connectionClosed) {
-                    console.log(chalk.yellow('⚠️  Connection closed, reconnecting...'));
+                    console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Connection closed, reconnecting...'));
                     await delay(3000);
                     startXeonBotInc();
                 } else if (reason === DisconnectReason.connectionLost) {
-                    console.log(chalk.yellow('⚠️  Connection Lost from Server, reconnecting...'));
+                    console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Connection Lost from Server, reconnecting...'));
                     await delay(3000);
                     startXeonBotInc();
                 } else if (reason === DisconnectReason.connectionReplaced) {
-                    console.log(chalk.red('❌ Connection Replaced, Another New Session Opened'));
+                    console.log(chalk.red('[ Moon-Xmd ] ❌ Connection Replaced, Another New Session Opened'));
                     process.exit(1);
                 } else if (reason === DisconnectReason.loggedOut) {
-                    console.log(chalk.red('❌ Device Logged Out, Please Delete Session and Scan Again.'));
+                    console.log(chalk.red('[ Moon-Xmd ] ❌ Device Logged Out, Please Delete Session and Scan Again.'));
                     try {
                         rmSync('./session', { recursive: true, force: true });
                     } catch {}
                     process.exit(1);
                 } else if (reason === DisconnectReason.restartRequired) {
-                    console.log(chalk.yellow('⚠️  Restart Required, Restarting...'));
+                    console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Restart Required, Restarting...'));
                     await delay(2000);
                     startXeonBotInc();
                 } else if (reason === DisconnectReason.timedOut) {
-                    console.log(chalk.yellow('⚠️  Connection TimedOut, Reconnecting...'));
+                    console.log(chalk.yellow('[ Moon-Xmd ] ⚠️  Connection TimedOut, Reconnecting...'));
                     await delay(3000);
                     startXeonBotInc();
                 } else {
-                    console.log(chalk.red(`❌ Unknown DisconnectReason: ${reason}|${connection}`));
+                    console.log(chalk.red(`[ Moon-Xmd ] ❌ Unknown DisconnectReason: ${reason}|${connection}`));
                     await delay(3000);
                     startXeonBotInc();
                 }
@@ -373,21 +375,20 @@ async function startXeonBotInc() {
                     const botNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
                     await XeonBotInc.sendMessage(botNumber, {
                         text: `
-> ╔═════════════════╗
-> ║    *MOON ＸＭＤ*           
-> ║  SUCCESSFULLY CONNECTED ✅       
-> ╠═════════════════╣
-> ║  ＰＲＥＦＩＸ: [ *${prefix}* ]            
-> ╟─────────────────╢
-> ║ 🖇️ ＣＨＡＮＮＥＬ ＬＩＮＫ         
-> ║ https://whatsapp.com/channel/0029VbANWX1DuMRi1VNPIB0y              
-> ╟─────────────────╢
-> ║ 🖇️ ＧＲＯＵＰ ＬＩＮＫ          
-> ║ https://chat.whatsapp.com/Bn1kDJrTGBi88ncw98PkGt?mode=ac_t                 
-> ╠═════════════════╣
-> ║   *MOON ＸＭＤ*               
-> ║  © ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇɪᴛʜ        
-> ╚═════════════════╝`,
+╔══════════════╗
+║    *MOON ＸＭＤ*           
+║ SUCCESSFULLY CONNECTED ✅       
+║ ＰＲＥＦＩＸ: [ *${prefix}* ]            
+╟──────────────╢
+║ 🖇️ ＣＨＡＮＮＥＬ ＬＩＮＫ         
+║ https://whatsapp.com/channel/0029VbANWX1DuMRi1VNPIB0y              
+╟──────────────╢
+║ 🖇️ ＧＲＯＵＰ ＬＩＮＫ          
+║ https://chat.whatsapp.com/Bn1kDJrTGBi88ncw98PkGt?mode=ac_t                 
+╠══════════════╣
+║   *MOON ＸＭＤ*               
+║  © ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇɪᴛʜ        
+╚══════════════╝`,
                         contextInfo: {
                             forwardingScore: 1,
                             isForwarded: true,
@@ -399,7 +400,7 @@ async function startXeonBotInc() {
                         }
                     });
                 } catch (error) {
-                    console.error(chalk.red('Error sending connection message:'), error.message)
+                    console.error(chalk.red('[ Moon-Xmd ] Error sending connection message:'), error.message)
                 }
             }
         })
@@ -427,7 +428,7 @@ async function startXeonBotInc() {
                         if (!antiCallNotified.has(callerJid)) {
                             antiCallNotified.add(callerJid);
                             setTimeout(() => antiCallNotified.delete(callerJid), 60000);
-                            await XeonBotInc.sendMessage(callerJid, { text: '📵 Anticall is enabled. Your call was rejected and you will be blocked.' });
+                            await XeonBotInc.sendMessage(callerJid, { text: '📵 *Calls not allowed at the moment!*' });
                         }
                     } catch {}
                     setTimeout(async () => {
@@ -457,7 +458,7 @@ async function startXeonBotInc() {
 
         return XeonBotInc
     } catch (error) {
-        console.error(chalk.red('❌ Error in startXeonBotInc:'), error.message)
+        console.error(chalk.red('❌ Error:'), error.message)
         await delay(5000)
         startXeonBotInc()
     }
@@ -476,6 +477,115 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (err) => {
     console.error(chalk.red('Unhandled Rejection:'), err)
 })
+
+// COMMAND CATEGORIES for menu
+const COMMAND_CATEGORIES = {
+    ADMIN: ['ʙᴀɴ', 'ᴘʀᴏᴍᴏᴛᴇ', 'ᴅᴇᴍᴏᴛᴇ', 'ᴍᴜᴛᴇ', 'ᴜɴᴍᴜᴛᴇ', 'ᴅᴇʟᴇᴛᴇ', 'ᴅᴇʟ', 'ᴋɪᴄᴋ', 'ᴡᴀʀɴɪɴɢꜱ', 'ᴡᴀʀɴ', 'ᴀɴᴛɪʟɪɴᴋ', 'ᴀɴᴛɪʙᴀᴅᴡᴏʀᴅ', 'ᴄʟᴇᴀʀ', 'ᴛᴀɢ', 'ᴛᴀɢᴀʟʟ', 'ᴛᴀɢɴᴏᴛᴀᴅᴍɪɴ', 'ʜɪᴅᴇᴛᴀɢ', 'ᴄʜᴀᴛʙᴏᴛ', 'ʀᴇꜱᴇᴛʟɪɴᴋ', 'ᴀɴᴛɪᴛᴀɢ', 'ᴡᴇʟᴄᴏᴍᴇ', 'ɢᴏᴏᴅʙʏᴇ', 'ꜱᴇᴛɢᴅᴇꜱᴄ', 'ꜱᴇᴛɢɴᴀᴍᴇ', 'ꜱᴇᴛɢᴘᴘ'],
+    ANIME: ['ɴᴏᴍ', 'ᴘᴏᴋᴇ', 'ᴄʀʏ', 'ᴋɪꜱꜱ', 'ᴘᴀᴛ', 'ʜᴜɢ', 'ᴡɪɴᴋ', 'ꜰᴀᴄᴇᴘᴀʟᴍ', 'ɢᴀʀʟ', 'ᴡᴀɪꜰᴜ', 'ɴᴇᴋᴏ', 'ᴍᴇɢᴜᴍɪɴ', 'ᴍᴀɪᴅ', 'ᴀᴡᴏᴏ', 'ᴀɴɪᴍᴇɢɪʀʟ', 'ᴀɴɪᴍᴇ', 'ᴀɴɪᴍᴇ1', 'ᴀɴɪᴍᴇ2', 'ᴀɴɪᴍᴇ3', 'ᴀɴɪᴍᴇ4', 'ᴀɴɪᴍᴇ5', 'ᴅᴏɢ'],
+OWNER: ['ᴍᴏᴅᴇ', 'ᴘʀᴇꜰɪx', 'ʙᴏᴛɪᴍɢ', 'ʙᴏᴛɴᴀᴍᴇ', 'ʙʟᴏᴄᴋ', 'ᴜɴʙʟᴏᴄᴋ', 'ᴄʟᴇᴀʀꜱᴇꜱꜱɪᴏɴ', 'ᴀɴᴛɪᴅᴇʟᴇᴛᴇ', 'ᴀɴᴛɪᴇᴅɪᴛ', 'ᴄʟᴇᴀʀᴛᴍᴘ', 'ᴜᴘᴅᴀᴛᴇ', 'ꜱᴇᴛᴛɪɴɢꜱ', 'ꜱᴇᴛᴘᴘ', 'ᴀᴜᴛᴏʀᴇᴀᴄᴛ', 'ᴀᴜᴛᴏꜱᴛᴀᴛᴜꜱ', 'ᴀᴜᴛᴏᴛʏᴘɪɴɢ', 'ᴀᴜᴛᴏʀᴇᴀᴅ', 'ᴀɴᴛɪᴄᴀʟʟ', 'ᴘᴍʙʟᴏᴄᴋᴇʀ', 'ꜱᴇᴛᴍᴇɴᴛɪᴏɴ', 'ᴍᴇɴᴛɪᴏɴ', 'ʟᴇᴀᴠᴇ'],
+
+GENERAL: ['ᴍᴇɴᴜ', 'ᴘɪɴɢ', 'ᴀʟɪᴠᴇ', 'ᴛᴛꜱ', 'ᴏᴡɴᴇʀ', 'ᴊᴏᴋᴇ', 'Qᴜᴏᴛᴇ', 'ꜰᴀᴄᴛ', 'ᴡᴇᴀᴛʜᴇʀ', 'ɴᴇᴡꜱ', 'ᴀᴛᴛᴘ', 'ʟʏʀɪᴄꜱ', '8ʙᴀʟʟ', 'ɢʀᴏᴜᴘɪɴꜰᴏ', 'ꜱᴛᴀꜰꜰ', 'ᴀᴅᴍɪɴꜱ', 'ᴠᴠ', 'ᴛʀᴛ', 'ꜱꜱ', 'ᴊɪᴅ','ʙɪʙʟᴇ', 'ᴛɪɴʏ', 'ᴛɪɴʏᴜʀʟ', 'ꜱᴇɴᴅ', 'ᴜʀʟ', 'ɢᴇᴛᴘᴘ', 'ᴛᴜᴛᴏʀɪᴀʟ'],
+
+    IMAGE_STICKER: ['ʙʟᴜʀ', 'ꜱɪᴍᴀɢᴇ', 'ꜱᴛɪᴄᴋᴇʀ', 'ʀᴇᴍᴏᴠᴇʙɢ', 'ʀᴇᴍɪɴɪ', 'ᴄʀᴏᴘ', 'ᴛɢꜱᴛɪᴄᴋᴇʀ', 'ᴍᴇᴍᴇ', 'ᴛᴀᴋᴇ', 'ᴇᴍᴏᴊɪᴍɪx', 'ɪɢꜱ', 'ɪɢꜱᴄ'],
+    PIES: ['ᴘɪᴇꜱ', 'ᴄʜɪɴᴀ', 'ɪɴᴅᴏɴᴇꜱɪᴀ', 'ᴊᴀᴘᴀɴ', 'ᴋᴏʀᴇᴀ', 'ʜɪᴊᴀʙ'],
+    GAME: ['ᴛɪᴄᴛᴀᴄᴛᴏᴇ', 'ʜᴀɴɢᴍᴀɴ', 'ɢᴜᴇꜱꜱ', 'ᴛʀɪᴠɪᴀ', 'ᴀɴꜱᴡᴇʀ', 'ᴛʀᴜᴛʜ', 'ᴅᴀʀᴇ'],
+    AI: ['ɢᴘᴛ', 'ɢᴇᴍɪɴɪ', 'ɪᴍᴀɢɪɴᴇ', 'ꜰʟᴜx', 'ꜱᴏʀᴀ'],
+    FUN: ['ᴄᴏᴍᴘʟɪᴍᴇɴᴛ', 'ɪɴꜱᴜʟᴛ', 'ꜰʟɪʀᴛ', 'ꜱʜᴀʏᴀʀɪ', 'ɢᴏᴏᴅɴɪɢʜᴛ', 'ʀᴏꜱᴇᴅᴀʏ', 'ᴄʜᴀʀᴀᴄᴛᴇʀ', 'ᴡᴀꜱᴛᴇᴅ', 'ꜱʜɪᴘ', 'ꜱɪᴍᴘ', 'ꜱᴛᴜᴘɪᴅ'],
+    TEXTMAKER: ['ᴍᴇᴛᴀʟʟɪᴄ', 'ɪᴄᴇ', 'ꜱɴᴏᴡ', 'ɪᴍᴘʀᴇꜱꜱɪᴠᴇ', 'ᴍᴀᴛʀɪx', 'ʟɪɢʜᴛ', 'ɴᴇᴏɴ', 'ᴅᴇᴠɪʟ', 'ᴘᴜʀᴘʟᴇ', 'ᴛʜᴜɴᴅᴇʀ', 'ʟᴇᴀᴠᴇꜱ', '1917', 'ᴀʀᴇɴᴀ', 'ʜᴀᴄᴋᴇʀ', 'ꜱᴀɴᴅ', 'ʙʟᴀᴄᴋᴘɪɴᴋ', 'ɢʟɪᴛᴄʜ', 'ꜰɪʀᴇ'],
+    DOWNLOADER: ['ᴘʟᴀʏ', 'ꜱᴏɴɢ', 'ꜱᴘᴏᴛɪꜰʏ', 'ᴀᴘᴋ', 'ᴀᴘᴘ', 'ɪɴꜱᴛᴀɢʀᴀᴍ', 'ꜰᴀᴄᴇʙᴏᴏᴋ', 'ᴛɪᴋᴛᴏᴋ', 'ᴠɪᴅᴇᴏ', 'ʏᴛᴍᴘ4'],
+    MISC: ['ʜᴇᴀʀᴛ', 'ʜᴏʀɴʏ', 'ᴄɪʀᴄʟᴇ', 'ʟɢʙᴛ', 'ʟᴏʟɪᴄᴇ', 'ɪᴛꜱ-ꜱᴏ-ꜱᴛᴜᴘɪᴅ', 'ɴᴀᴍᴇᴄᴀʀᴅ', 'ᴏᴏɢᴡᴀʏ', 'ᴛᴡᴇᴇᴛ', 'ʏᴛᴄᴏᴍᴍᴇɴᴛ', 'ᴄᴏᴍʀᴀᴅᴇ', 'ɢᴀʏ', 'ɢʟᴀꜱꜱ', 'ᴊᴀɪʟ', 'ᴘᴀꜱꜱᴇᴅ', 'ᴛʀɪɢɢᴇʀᴇᴅ'],
+    GITHUB: ['ꜱᴄʀɪᴘᴛ', 'ɢɪᴛᴄʟᴏɴᴇ', 'ᴄɪᴅ', 'ɪᴅ', 'ᴄʜᴀɴɴᴇʟɪᴅ', 'ᴠᴄᴀʀᴅ', 'ʀᴇᴘᴏ']
+};
+
+// Function to get RAM usage with visual bar
+function getRAMUsage() {
+    const totalRAM = os.totalmem();
+    const freeRAM = os.freemem();
+    const usedRAM = totalRAM - freeRAM;
+    
+    const usedMB = (usedRAM / 1024 / 1024).toFixed(2);
+    const totalGB = (totalRAM / 1024 / 1024 / 1024).toFixed(2);
+    const percentage = ((usedRAM / totalRAM) * 100).toFixed(1);
+    
+    const filledBlocks = Math.round((usedRAM / totalRAM) * 10);
+    const emptyBlocks = 10 - filledBlocks;
+    const bar = '█'.repeat(filledBlocks) + '▓'.repeat(emptyBlocks);
+    
+    return {
+        bar: bar,
+        text: `${usedMB} MB / ${totalGB} GB`,
+        percentage: percentage
+    };
+}
+
+
+// Function to detect platform
+function getPlatform() {
+    const env = process.env;
+    
+    if (env.DYNO || env.HEROKU_APP_DIR || env.HEROKU_SLUG_COMMIT) return 'Heroku';
+    if (env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID) return 'Railway';
+    if (env.RENDER || env.RENDER_EXTERNAL_URL) return 'Render';
+    if (env.KOYEB_PUBLIC_DOMAIN || env.KOYEB_APP_ID) return 'Koyeb';
+    if (env.VERCEL || env.VERCEL_ENV || env.VERCEL_URL) return 'Vercel';
+    if (env.REPL_ID || env.REPL_SLUG) return 'Replit';
+  
+  
+    // Check if it's running on local/panel
+    const hostname = os.hostname().toLowerCase();
+    if (!env.CLOUD_PROVIDER && !env.DYNO && !env.VERCEL && !env.RENDER && 
+        !env.RAILWAY_ENVIRONMENT && !env.KOYEB_PUBLIC_DOMAIN) {
+        
+        // Check for common local/panel indicators
+        if (hostname.includes('vps') || hostname.includes('server') || 
+            hostname.includes('panel') || hostname.includes('local')) {
+            return 'Panel';
+        }
+    }
+    
+    // Fallback to OS detection
+    const platform = os.platform();
+    switch (platform) {
+        case 'linux': 
+            // Check if it's Android/Termux
+            if (platform.includes('android') || env.TERMUX_VERSION) {
+                return 'Termux';
+            }
+            return 'Linux';
+        case 'win32': return 'Windows';
+        case 'darwin': return 'MacOS';
+        default: return 'Unknown';
+    }
+}
+
+
+// Function to get total commands
+function getTotalCommands() {
+    return Object.values(COMMAND_CATEGORIES).reduce((total, commands) => total + commands.length, 0);
+}
+
+// Function to get pushname
+function getPushname(message) {
+    return message.pushName || message.key.participant?.split('@')[0] || 'No Name';
+}
+
+// Function to format commands for menu
+function formatCommands(commands) {
+    const prefixes = getPrefixes ? getPrefixes() : (Array.isArray(settings.Prefix) ? settings.Prefix : [settings.Prefix]);
+    const primaryPrefix = prefixes[0];
+    return commands.map(cmd => `*│▸* *${primaryPrefix}${cmd}*`).join('\n');
+}
+
+// Export helper functions
+global.menuHelpers = {
+    getPrefixes,
+    COMMAND_CATEGORIES,
+    getRAMUsage,
+    getPlatform,
+    getTotalCommands,
+    getPushname,
+    formatCommands
+};
 
 let file = require.resolve(__filename)
 fs.watchFile(file, () => {
