@@ -1,3 +1,7 @@
+/*
+CODES BY KEITH TECH
+
+*/
 const { handleWelcome } = require('../lib/welcome');
 const { isWelcomeOn, getWelcome } = require('../lib/index');
 const { channelInfo } = require('../lib/messageConfig');
@@ -56,6 +60,17 @@ async function handleJoinEvent(sock, id, participants) {
                 console.log('Could not fetch display name, using phone number');
             }
             
+            // Get user profile picture
+            let profilePicUrl = `https://img.pyrocdn.com/dbKUgahg.png`; // Default avatar
+            try {
+                const profilePic = await sock.profilePictureUrl(participantString, 'image');
+                if (profilePic) {
+                    profilePicUrl = profilePic;
+                }
+            } catch (profileError) {
+                console.log('Could not fetch profile picture, using default');
+            }
+            
             // Process custom message with variables
             let finalMessage;
             if (customMessage) {
@@ -76,31 +91,31 @@ async function handleJoinEvent(sock, id, participants) {
                     hour12: true
                 });
                 
-                finalMessage = `╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝚃𝙸𝙼𝙴: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\n${groupDesc}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ Knight Bot*`;
+                finalMessage = `
+╭━━━ *New Member* ━━━╮
+┃ Welcome: @${displayName} 👋
+┃ Member: #${groupMetadata.participants.length}
+┃ Time: ${timeString} ⏰
+╰━━━━━━━━━━━━━━━━╯
+
+🎉 *Welcome to ${groupName}!*
+
+👤 *@${displayName}*
+
+📝 *Group Description:*
+${groupDesc}
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇɪᴛʜ ᴛᴇᴄʜ`;
             }
             
-            // Try to send with image first (always try images)
+            // Try to send with profile picture
             try {
-                // Get user profile picture
-                let profilePicUrl = `https://img.pyrocdn.com/dbKUgahg.png`; // Default avatar
-                try {
-                    const profilePic = await sock.profilePictureUrl(participantString, 'image');
-                    if (profilePic) {
-                        profilePicUrl = profilePic;
-                    }
-                } catch (profileError) {
-                    console.log('Could not fetch profile picture, using default');
-                }
-                
-                // Construct API URL for welcome image
-                const apiUrl = `https://api.some-random-api.com/welcome/img/2/gaming3?type=join&textcolor=green&username=${encodeURIComponent(displayName)}&guildName=${encodeURIComponent(groupName)}&memberCount=${groupMetadata.participants.length}&avatar=${encodeURIComponent(profilePicUrl)}`;
-                
-                // Fetch the welcome image
-                const response = await fetch(apiUrl);
+                // Fetch the profile picture
+                const response = await fetch(profilePicUrl);
                 if (response.ok) {
                     const imageBuffer = await response.buffer();
                     
-                    // Send welcome image with caption (custom or default message)
+                    // Send welcome with profile picture and caption
                     await sock.sendMessage(id, {
                         image: imageBuffer,
                         caption: finalMessage,
@@ -110,10 +125,10 @@ async function handleJoinEvent(sock, id, participants) {
                     continue; // Skip to next participant
                 }
             } catch (imageError) {
-                console.log('Image generation failed, falling back to text');
+                console.log('Failed to get Pp, falling back to text');
             }
             
-            // Send text message (either custom message or fallback)
+            // Fallback: Send text message only
             await sock.sendMessage(id, {
                 text: finalMessage,
                 mentions: [participantString],
@@ -121,7 +136,7 @@ async function handleJoinEvent(sock, id, participants) {
             });
         } catch (error) {
             console.error('Error sending welcome message:', error);
-            // Fallback to text message
+            // Final fallback to simple text message
             const participantString = typeof participant === 'string' ? participant : (participant.id || participant.toString());
             const user = participantString.split('@')[0];
             
@@ -133,7 +148,7 @@ async function handleJoinEvent(sock, id, participants) {
                     .replace(/{group}/g, groupName)
                     .replace(/{description}/g, groupDesc);
             } else {
-                fallbackMessage = `Welcome @${user} to ${groupName}! 🎉`;
+                fallbackMessage = `🎉 Welcome @${user} to ${groupName}!\n\n📝 ${groupDesc}`;
             }
             
             await sock.sendMessage(id, {

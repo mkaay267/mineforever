@@ -2,8 +2,7 @@ const axios = require("axios");
 
 async function tinyCommand(sock, chatId, message, userMessage) {
     try {
-        const link = userMessage.slice(5).trim(); // Remove '.tiny ' from command
-
+        const link = userMessage.slice(5).trim();
         if (!link) {
             await sock.sendMessage(chatId, {
                 text: "*ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴍᴇ ᴀ ʟɪɴᴋ.*"
@@ -17,7 +16,7 @@ async function tinyCommand(sock, chatId, message, userMessage) {
 
         console.log("Shortened URL:", shortenedUrl);
         await sock.sendMessage(chatId, {
-            text: `* YOUR SHORTENED URL*\n\n${shortenedUrl}`
+            text: `*YOUR SHORTENED URL*\n\n${shortenedUrl}`
         }, { quoted: message });
 
     } catch (e) {
