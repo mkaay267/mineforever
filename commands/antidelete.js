@@ -225,15 +225,15 @@ async function handleMessageRevocation(sock, revocationMessage) {
         });
 
         let text = `*🗑️ DELETED MESSAGE 🗑️*\n\n` +
-            `*> 🗑️ Deleted By:* @${deletedBy.split('@')[0]}\n` +
-            `*> 👤 Sender:* @${senderName}\n` +
-            `*> 📞 Number:* ${sender}\n` +
-            `*> 🕒 Time:* ${time}\n`;
+            `> *🗑️ Deleted By:* @${deletedBy.split('@')[0]}\n` +
+            `> *👤 Sender:* @${senderName}\n` +
+            `> *📞 Number:* ${sender}\n` +
+            `> *🕒 Time:* ${time}\n`;
 
         if (groupName) text += `> *👥 Group:* ${groupName}\n`;
 
         if (original.content) {
-            text += `\n*💬 Deleted Message:*\n${original.content}`;
+            text += `\n*💬 Deleted Message:*\n\n${original.content}`;
         }
 
         await sock.sendMessage(ownerNumber, {

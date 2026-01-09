@@ -1,4 +1,4 @@
-const settings = require('settings');
+const settings = require('../settings');
 
 async function channelInfoCommand(sock, chatId, message, userMessage) {
     try {

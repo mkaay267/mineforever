@@ -9,6 +9,10 @@ async function githubCommand(sock, chatId, message) {
     const res = await fetch('https://api.github.com/repos/mrkeithtech/Moon-Xmd');
     if (!res.ok) throw new Error('Error fetching repository data');
     const json = await res.json();
+    
+    await sock.sendMessage(chatId, {
+        react: { text: '⚡', key: message.key }
+    });
 
     let txt = `
 🌙 *MOON XMD* REPO

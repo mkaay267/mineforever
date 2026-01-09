@@ -1,193 +1,105 @@
 const settings = require('../settings');
 const fs = require('fs');
-const os = require('os');
 const { Vcard } = require('../lib/Keith');
-const { getUptime, getDetailedUptime, getLongUptime } = require('../lib/runtime');
+const { getUptime } = require('../lib/runtime');
 const path = require('path');
+
 const readMore = String.fromCharCode(8206).repeat(4001);
 
-// COMMAND CATEGORIES
-const GENERAL_COMMANDS = ['ʜᴇʟᴘ', 'ᴍᴇɴᴜ', 'ᴘɪɴɢ', 'ᴀʟɪᴠᴇ', 'ᴛᴛꜱ', 'ᴏᴡɴᴇʀ', 'ᴊᴏᴋᴇ', 'Qᴜᴏᴛᴇ', 'ꜰᴀᴄᴛ', 'ᴡᴇᴀᴛʜᴇʀ', 'ɴᴇᴡꜱ', 'ᴀᴛᴛᴘ', 'ʟʏʀɪᴄꜱ', '8ʙᴀʟʟ', 'ɢʀᴏᴜᴘɪɴꜰᴏ', 'ꜱᴛᴀꜰꜰ', 'ᴀᴅᴍɪɴꜱ', 'ᴠᴠ', 'ᴛʀᴛ', 'ꜱꜱ', 'ᴊɪᴅ','ʙɪʙʟᴇ', 'ᴛɪɴʏ', 'ᴛɪɴʏᴜʀʟ',  'ꜱᴇɴᴅ', 'ᴜʀʟ'];
+async function helpCommand(sock, chatId, message) {
+    try {
+        // Send reaction first
+        await sock.sendMessage(chatId, {
+            react: { text: '⚡', key: message.key }
+        });
 
-const ADMIN_COMMANDS = ['ʙᴀɴ', 'ᴘʀᴏᴍᴏᴛᴇ', 'ᴅᴇᴍᴏᴛᴇ', 'ᴍᴜᴛᴇ', 'ᴜɴᴍᴜᴛᴇ', 'ᴅᴇʟᴇᴛᴇ', 'ᴅᴇʟ', 'ᴋɪᴄᴋ', 'ᴡᴀʀɴɪɴɢꜱ', 'ᴡᴀʀɴ', 'ᴀɴᴛɪʟɪɴᴋ', 'ᴀɴᴛɪʙᴀᴅᴡᴏʀᴅ', 'ᴄʟᴇᴀʀ', 'ᴛᴀɢ', 'ᴛᴀɢᴀʟʟ', 'ᴛᴀɢɴᴏᴛᴀᴅᴍɪɴ', 'ʜɪᴅᴇᴛᴀɢ', 'ᴄʜᴀᴛʙᴏᴛ', 'ʀᴇꜱᴇᴛʟɪɴᴋ', 'ᴀɴᴛɪᴛᴀɢ', 'ᴡᴇʟᴄᴏᴍᴇ', 'ɢᴏᴏᴅʙʏᴇ', 'ꜱᴇᴛɢᴅᴇꜱᴄ', 'ꜱᴇᴛɢɴᴀᴍᴇ', 'ꜱᴇᴛɢᴘᴘ'];
+        // Access helper functions from global (set by index.js)
+        const {
+            COMMAND_CATEGORIES,
+            getPrefixes,
+            getRAMUsage,
+            getPlatform,
+            getTotalCommands,
+            getPushname,
+            formatCommands
+        } = global.menuHelpers;
 
-const ANIME_COMMANDS = ['ɴᴏᴍ', 'ᴘᴏᴋᴇ', 'ᴄʀʏ', 'ᴋɪꜱꜱ', 'ᴘᴀᴛ', 'ʜᴜɢ', 'ᴡɪɴᴋ', 'ꜰᴀᴄᴇᴘᴀʟᴍ', 'ɢᴀʀʟ', 'ᴡᴀɪꜰᴜ', 'ɴᴇᴋᴏ', 'ᴍᴇɢᴜᴍɪɴ', 'ᴍᴀɪᴅ', 'ᴀᴡᴏᴏ', 'ᴀɴɪᴍᴇɢɪʀʟ', 'ᴀɴɪᴍᴇ', 'ᴀɴɪᴍᴇ1', 'ᴀɴɪᴍᴇ2', 'ᴀɴɪᴍᴇ3', 'ᴀɴɪᴍᴇ4', 'ᴀɴɪᴍᴇ5', 'ᴅᴏɢ'];
+        // Get all dynamic values
+        const pushname = getPushname(message);
+        const uptime = getUptime();
+        const ramUsage = getRAMUsage();
+        const platform = getPlatform();
+        const totalCommands = getTotalCommands();
 
-const OWNER_COMMANDS = ['ᴍᴏᴅᴇ', 'ᴄʟᴇᴀʀꜱᴇꜱꜱɪᴏɴ', 'ᴀɴᴛɪᴅᴇʟᴇᴛᴇ', 'ᴄʟᴇᴀʀᴛᴍᴘ', 'ᴜᴘᴅᴀᴛᴇ', 'ꜱᴇᴛᴛɪɴɢꜱ', 'ꜱᴇᴛᴘᴘ', 'ᴀᴜᴛᴏʀᴇᴀᴄᴛ', 'ᴀᴜᴛᴏꜱᴛᴀᴛᴜꜱ', 'ᴀᴜᴛᴏᴛʏᴘɪɴɢ', 'ᴀᴜᴛᴏʀᴇᴀᴅ', 'ᴀɴᴛɪᴄᴀʟʟ', 'ᴘᴍʙʟᴏᴄᴋᴇʀ', 'ꜱᴇᴛᴍᴇɴᴛɪᴏɴ', 'ᴍᴇɴᴛɪᴏɴ', 'ʟᴇᴀᴠᴇ'];
-
-const IMAGE_STICKER_COMMANDS = ['ʙʟᴜʀ', 'ꜱɪᴍᴀɢᴇ', 'ꜱᴛɪᴄᴋᴇʀ', 'ʀᴇᴍᴏᴠᴇʙɢ', 'ʀᴇᴍɪɴɪ', 'ᴄʀᴏᴘ', 'ᴛɢꜱᴛɪᴄᴋᴇʀ', 'ᴍᴇᴍᴇ', 'ᴛᴀᴋᴇ', 'ᴇᴍᴏᴊɪᴍɪx', 'ɪɢꜱ', 'ɪɢꜱᴄ'];
-
-const PIES_COMMANDS = ['ᴘɪᴇꜱ', 'ᴄʜɪɴᴀ', 'ɪɴᴅᴏɴᴇꜱɪᴀ', 'ᴊᴀᴘᴀɴ', 'ᴋᴏʀᴇᴀ', 'ʜɪᴊᴀʙ'];
-
-const GAME_COMMANDS = ['ᴛɪᴄᴛᴀᴄᴛᴏᴇ', 'ʜᴀɴɢᴍᴀɴ', 'ɢᴜᴇꜱꜱ', 'ᴛʀɪᴠɪᴀ', 'ᴀɴꜱᴡᴇʀ', 'ᴛʀᴜᴛʜ', 'ᴅᴀʀᴇ'];
-
-const AI_COMMANDS = ['ɢᴘᴛ', 'ɢᴇᴍɪɴɪ', 'ɪᴍᴀɢɪɴᴇ', 'ꜰʟᴜx', 'ꜱᴏʀᴀ'];
-
-const FUN_COMMANDS = ['ᴄᴏᴍᴘʟɪᴍᴇɴᴛ', 'ɪɴꜱᴜʟᴛ', 'ꜰʟɪʀᴛ', 'ꜱʜᴀʏᴀʀɪ', 'ɢᴏᴏᴅɴɪɢʜᴛ', 'ʀᴏꜱᴇᴅᴀʏ', 'ᴄʜᴀʀᴀᴄᴛᴇʀ', 'ᴡᴀꜱᴛᴇᴅ', 'ꜱʜɪᴘ', 'ꜱɪᴍᴘ', 'ꜱᴛᴜᴘɪᴅ'];
-
-const TEXTMAKER_COMMANDS = ['ᴍᴇᴛᴀʟʟɪᴄ', 'ɪᴄᴇ', 'ꜱɴᴏᴡ', 'ɪᴍᴘʀᴇꜱꜱɪᴠᴇ', 'ᴍᴀᴛʀɪx', 'ʟɪɢʜᴛ', 'ɴᴇᴏɴ', 'ᴅᴇᴠɪʟ', 'ᴘᴜʀᴘʟᴇ', 'ᴛʜᴜɴᴅᴇʀ', 'ʟᴇᴀᴠᴇꜱ', '1917', 'ᴀʀᴇɴᴀ', 'ʜᴀᴄᴋᴇʀ', 'ꜱᴀɴᴅ', 'ʙʟᴀᴄᴋᴘɪɴᴋ', 'ɢʟɪᴛᴄʜ', 'ꜰɪʀᴇ'];
-
-const DOWNLOADER_COMMANDS = ['ᴘʟᴀʏ', 'ꜱᴏɴɢ', 'ꜱᴘᴏᴛɪꜰʏ', 'ᴀᴘᴋ', 'ᴀᴘᴘ', 'ɪɴꜱᴛᴀɢʀᴀᴍ', 'ꜰᴀᴄᴇʙᴏᴏᴋ', 'ᴛɪᴋᴛᴏᴋ', 'ᴠɪᴅᴇᴏ', 'ʏᴛᴍᴘ4'];
-
-const MISC_COMMANDS = ['ʜᴇᴀʀᴛ', 'ʜᴏʀɴʏ', 'ᴄɪʀᴄʟᴇ', 'ʟɢʙᴛ', 'ʟᴏʟɪᴄᴇ', 'ɪᴛꜱ-ꜱᴏ-ꜱᴛᴜᴘɪᴅ', 'ɴᴀᴍᴇᴄᴀʀᴅ', 'ᴏᴏɢᴡᴀʏ', 'ᴛᴡᴇᴇᴛ', 'ʏᴛᴄᴏᴍᴍᴇɴᴛ', 'ᴄᴏᴍʀᴀᴅᴇ', 'ɢᴀʏ', 'ɢʟᴀꜱꜱ', 'ᴊᴀɪʟ', 'ᴘᴀꜱꜱᴇᴅ', 'ᴛʀɪɢɢᴇʀᴇᴅ'];
-
-const GITHUB_COMMANDS = ['ꜱᴄʀɪᴘᴛ', 'ɢɪᴛᴄʟᴏɴᴇ', 'ᴄɪᴅ', 'ɪᴅ', 'ᴄʜᴀɴɴᴇʟɪᴅ', 'ᴠᴄᴀʀᴅ', 'ʀᴇᴘᴏ'];
-
-// Function to get RAM usage with visual bar
-function getRAMUsage() {
-    const totalRAM = os.totalmem();
-    const freeRAM = os.freemem();
-    const usedRAM = totalRAM - freeRAM;
-    
-    // Convert to MB
-    const usedMB = (usedRAM / 1024 / 1024).toFixed(2);
-    const totalGB = (totalRAM / 1024 / 1024 / 1024).toFixed(2);
-    
-    // Calculate percentage
-    const percentage = ((usedRAM / totalRAM) * 100).toFixed(1);
-    
-    // Create visual bar (10 blocks total)
-    const filledBlocks = Math.round((usedRAM / totalRAM) * 10);
-    const emptyBlocks = 10 - filledBlocks;
-    const bar = '█'.repeat(filledBlocks) + '▓'.repeat(emptyBlocks);
-    
-    return {
-        bar: bar,
-        text: `${usedMB} MB / ${totalGB} GB`,
-        percentage: percentage
-    };
-}
-
-// Function to detect platform
-function getPlatform() {
-    // Check for common hosting platform environment variables
-    if (process.env.DYNO) return 'Heroku';
-    if (process.env.RAILWAY_ENVIRONMENT) return 'Railway';
-    if (process.env.RENDER) return 'Render';
-    if (process.env.KOYEB_PUBLIC_DOMAIN) return 'Koyeb';
-    if (process.env.VERCEL) return 'Vercel';
-    if (process.env.REPL_ID) return 'Replit';
-    if (fs.existsSync('/.dockerenv')) return 'Panel';
-    
-    // Fallback to OS platform
-    const platform = os.platform();
-    switch (platform) {
-        case 'linux': return 'Linux';
-        case 'win32': return 'Windows';
-        case 'darwin': return 'MacOS';
-        case 'android': return 'Android (Termux)';
-        default: return 'Unknown';
-    }
-}
-
-// Function to get total commands
-function getTotalCommands() {
-    return GENERAL_COMMANDS.length + 
-           ADMIN_COMMANDS.length + 
-           OWNER_COMMANDS.length + 
-           IMAGE_STICKER_COMMANDS.length + 
-           PIES_COMMANDS.length + 
-           GAME_COMMANDS.length + 
-           AI_COMMANDS.length + 
-           FUN_COMMANDS.length + 
-           TEXTMAKER_COMMANDS.length + 
-           DOWNLOADER_COMMANDS.length + 
-           MISC_COMMANDS.length + 
-           ANIME_COMMANDS.length + 
-           GITHUB_COMMANDS.length;
-}
-
-// Function to format commands
-function formatCommands(commands) {
-    return commands.map(cmd => `┃ *${settings.Prefix}${cmd}*`).join('\n');
-}
-
-// Function to get pushname
-function getPushname(message) {
-    return message.pushName || message.key.participant?.split('@')[0] || 'No Name';
-}
-
-async function menuCommand(sock, chatId, message) {
-    const pushname = getPushname(message);
-    const uptime = getUptime(); // Now this will work correctly
-    const ramUsage = getRAMUsage();
-    const platform = getPlatform();
-
-    await sock.sendMessage(chatId, {
-        react: { text: '⚡', key: message.key }
-    });
-    
-    const MoonXmd = `
-┎━❑ 𝐌𝐎𝐎𝐍 𝐗𝐌𝐃 🌙 ❑━⋅⊶
-┃★╭─────────
-┃❋│ *ᴜꜱᴇʀ :* *${pushname}*
-┃❋│ *ᴏᴡɴᴇʀ :* ${settings.botOwner}
-┃❋│ *ᴠᴇʀꜱɪᴏɴ :* ${settings.version}
-┃❋│ *ᴄᴍᴅꜱ :* ${getTotalCommands()}
-┃❋│ *ᴛɪᴍᴇᴢᴏɴᴇ :* ${settings.timezone}
-┃❋│ *ᴜᴘᴛɪᴍᴇ :* ${uptime}
-┃❋│ *ʜᴏꜱᴛ :* ${platform}
-┃❋│ *ᴍᴏᴅᴇ :* ${settings.commandMode}
-┃❋│ *ʀᴀᴍ :* ${ramUsage.bar}
-┃❋│ ${ramUsage.text} (${ramUsage.percentage}%)
-┃★╰─────────
+        const MoonXmd = `
+┎━❑ ${settings.botName} ❑━⋅⊶
+┃➸╭─────────
+┃❑│▸ 👤 *ᴜꜱᴇʀ :* *@${pushname}*
+┃❑│▸ 👑 *ᴏᴡɴᴇʀ :* ${settings.botOwner}
+┃❑│▸ 📦 *ᴠᴇʀꜱɪᴏɴ :* ${settings.version}
+┃❑│▸ 📚 *ᴄᴍᴅꜱ :* ${totalCommands}
+┃❑│▸ 🌍 *ᴛɪᴍᴇᴢᴏɴᴇ :* ${settings.timezone}
+┃❑│▸ 🔋 *ᴜᴘᴛɪᴍᴇ :* ${uptime}
+┃❑│▸ 💻 *ʜᴏꜱᴛ :* ${platform}
+┃❑│▸ ⚙️ *ᴍᴏᴅᴇ :* ${settings.commandMode}
+┃❑│▸ 📈 ʀᴀᴍusage: ${ramUsage.text} (${ramUsage.percentage}%)
+┃➸╰─────────
 ┖━━━━━━━━━━━━⋅⊶
 ${readMore}
-┎ ❑ 𝐌𝐀𝐈𝐍 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(GENERAL_COMMANDS)}
+┎ ❑ *𝐌𝐀𝐈𝐍 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.GENERAL)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐀𝐍𝐈𝐌𝐄 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(ANIME_COMMANDS)}
+┎ ❑ *𝐀𝐍𝐈𝐌𝐄 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.ANIME)}
 ┖━━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐆𝐑𝐎𝐔𝐏 𝐌𝐄𝐍𝐔 ❑ 
-${formatCommands(ADMIN_COMMANDS)}
+┎ ❑ *𝐆𝐑𝐎𝐔𝐏 𝐌𝐄𝐍𝐔* ❑ 
+${formatCommands(COMMAND_CATEGORIES.ADMIN)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐎𝐖𝐍𝐄𝐑 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(OWNER_COMMANDS)}
+┎ ❑ *𝐎𝐖𝐍𝐄𝐑 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.OWNER)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐈𝐌𝐀𝐆𝐄 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(IMAGE_STICKER_COMMANDS)}
+┎ ❑ *𝐈𝐌𝐀𝐆𝐄 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.IMAGE_STICKER)}
 ┖━━━━━━━━━⋅⊶  
 
-┎ ❑ 𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(PIES_COMMANDS)}
+┎ ❑ *𝐒𝐓𝐈𝐂𝐊𝐄𝐑 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.PIES)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐆𝐀𝐌𝐄 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(GAME_COMMANDS)}
+┎ ❑ *𝐆𝐀𝐌𝐄 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.GAME)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐀𝐈 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(AI_COMMANDS)}
+┎ ❑ *𝐀𝐈 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.AI)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐅𝐔𝐍 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(FUN_COMMANDS)}
+┎ ❑ *𝐅𝐔𝐍 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.FUN)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐓𝐄𝐗𝐓 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(TEXTMAKER_COMMANDS)}
+┎ ❑ *𝐓𝐄𝐗𝐓 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.TEXTMAKER)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐃𝐋 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(DOWNLOADER_COMMANDS)}
+┎ ❑ *𝐃𝐋 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.DOWNLOADER)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐌𝐈𝐒𝐂 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(MISC_COMMANDS)}
+┎ ❑ *𝐌𝐈𝐒𝐂 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.MISC)}
 ┖━━━━━━━━━⋅⊶
 
-┎ ❑ 𝐎𝐓𝐇𝐄𝐑 𝐌𝐄𝐍𝐔 ❑
-${formatCommands(GITHUB_COMMANDS)}
+┎ ❑ *𝐎𝐓𝐇𝐄𝐑 𝐌𝐄𝐍𝐔* ❑
+${formatCommands(COMMAND_CATEGORIES.GITHUB)}
 ┖━━━━━━━━━⋅⊶
 
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇɪᴛʜ ᴛᴇᴄʜ`;
 
-    try {
         const imagePath = path.join(__dirname, '../assets/Menu.jpg');
         
         if (fs.existsSync(imagePath)) {
@@ -206,8 +118,9 @@ ${formatCommands(GITHUB_COMMANDS)}
                     }
                 }
             }, { quoted: Vcard });
+            
         } else {
-            console.error('❌ Bot image not found at:', imagePath);
+            console.error('Bot image not found at:', imagePath);
             await sock.sendMessage(chatId, { 
                 text: MoonXmd,
                 contextInfo: {
@@ -215,16 +128,18 @@ ${formatCommands(GITHUB_COMMANDS)}
                     isForwarded: true,
                     forwardedNewsletterMessageInfo: {
                         newsletterJid: '120363417440480101@newsletter',
-                        newsletterName: 'Keith Tech',
+                        newsletterName: 'Keith Tech Updates',
                         serverMessageId: -1
                     } 
                 }
             });
         }
     } catch (error) {
-        console.error('❌ Error in menu command:', error);
-        await sock.sendMessage(chatId, { text: MoonXmd });
+        console.error('Error in menu command:', error);
+        await sock.sendMessage(chatId, { 
+            text: '❌ An error occurred while displaying the menu. Please try again later.' 
+        });
     }
 }
 
-module.exports = menuCommand;
+module.exports = helpCommand;

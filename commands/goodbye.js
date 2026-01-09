@@ -1,3 +1,8 @@
+/*
+CODES BY KEITH TECH
+
+*/
+
 const { handleGoodbye } = require('../lib/welcome');
 const { isGoodByeOn, getGoodbye } = require('../lib/index');
 const fetch = require('node-fetch');
@@ -54,6 +59,17 @@ async function handleLeaveEvent(sock, id, participants) {
                 console.log('Could not fetch display name, using phone number');
             }
             
+            // Get user profile picture
+            let profilePicUrl = `https://img.pyrocdn.com/dbKUgahg.png`; // Default avatar
+            try {
+                const profilePic = await sock.profilePictureUrl(participantString, 'image');
+                if (profilePic) {
+                    profilePicUrl = profilePic;
+                }
+            } catch (profileError) {
+                console.log('Could not fetch profile picture, using default');
+            }
+            
             // Process custom message with variables
             let finalMessage;
             if (customMessage) {
@@ -61,32 +77,42 @@ async function handleLeaveEvent(sock, id, participants) {
                     .replace(/{user}/g, `@${displayName}`)
                     .replace(/{group}/g, groupName);
             } else {
-                // Default message if no custom message is set
-                finalMessage = ` *@${displayName}* we will never miss you! `;
+                // Default message with sad emoji and "we lost our soldier"
+                const now = new Date();
+                const timeString = now.toLocaleString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+                
+                finalMessage = `
+ ╭━━━≪•🥀•≫━━━╮
+┃ 𝐖𝐄 𝐋𝐎𝐒𝐓 𝐎𝐔𝐑 𝐒𝐎𝐋𝐃𝐈𝐄𝐑 😢
+╰━━━━━━━━━━━━╯
+
+👤 *@${displayName}*
+📉 Members: ${groupMetadata.participants.length}
+⏰ Time: ${timeString}
+
+💔 *We will miss you @${displayName}* 
+
+_Goodbye from *${groupName}*_
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴋᴇɪᴛʜ ᴛᴇᴄʜ`;
             }
             
-            // Try to send with image first (always try images)
+            // Try to send with profile picture
             try {
-                // Get user profile picture
-                let profilePicUrl = `https://img.pyrocdn.com/dbKUgahg.png`; // Default avatar
-                try {
-                    const profilePic = await sock.profilePictureUrl(participantString, 'image');
-                    if (profilePic) {
-                        profilePicUrl = profilePic;
-                    }
-                } catch (profileError) {
-                    console.log('Could not fetch profile picture, using default');
-                }
-                
-                // Construct API URL for goodbye image
-               
-                
-                // Fetch the goodbye image
-                const response = await fetch(apiUrl);
+                // Fetch the profile picture
+                const response = await fetch(profilePicUrl);
                 if (response.ok) {
                     const imageBuffer = await response.buffer();
                     
-                    // Send goodbye image with caption (custom or default message)
+                    // Send goodbye with profile picture and caption
                     await sock.sendMessage(id, {
                         image: imageBuffer,
                         caption: finalMessage,
@@ -95,17 +121,17 @@ async function handleLeaveEvent(sock, id, participants) {
                     continue; // Skip to next participant
                 }
             } catch (imageError) {
-                console.log('Image generation failed, falling back to text');
+                console.log('Profile picture fetch failed, falling back to text');
             }
             
-            // Send text message (either custom message or fallback)
+            // Fallback: Send text message only
             await sock.sendMessage(id, {
                 text: finalMessage,
                 mentions: [participantString]
             });
         } catch (error) {
             console.error('Error sending goodbye message:', error);
-            // Fallback to text message
+            // Final fallback to simple text message
             const participantString = typeof participant === 'string' ? participant : (participant.id || participant.toString());
             const user = participantString.split('@')[0];
             
@@ -116,7 +142,7 @@ async function handleLeaveEvent(sock, id, participants) {
                     .replace(/{user}/g, `@${user}`)
                     .replace(/{group}/g, groupName);
             } else {
-                fallbackMessage = `Goodbye @${user}! 👋`;
+                fallbackMessage = `😢 *We lost our soldier*\n\n💔 We will miss you @${user}\n\nGoodbye from *${groupName}* 👋`;
             }
             
             await sock.sendMessage(id, {

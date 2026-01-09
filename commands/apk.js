@@ -1,5 +1,6 @@
 // CODES BY KEITH TECH
 
+const settings = require('../settings');
 const fetch = require('node-fetch');
 const axios = require('axios');
 
@@ -38,7 +39,7 @@ async function apkCommand(sock, chatId, message, userMessage) {
 
         // Prepare caption with app details
         const caption = `
-🌙 *Mᴏᴏɴ Xᴍᴅ  Aᴘᴋ* 🌙
+🌙 *${settings.botName}  Aᴘᴋ* 🌙
 
 
 📦 *Nᴀᴍᴇ:* ${app.name}
